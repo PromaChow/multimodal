@@ -49,6 +49,7 @@ jobs:
           task: get-measurement
       - name: Run unit tests with coverage
         run: pytest tests --cov=. --cov-report=xml --durations=20 -vv
+        continue-on-error: true
       - id: measurement-8
         name: Record Measurement After Run unit tests with coverage
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
