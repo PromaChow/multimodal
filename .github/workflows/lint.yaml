@@ -1,19 +1,23 @@
 name: Lint
-
 on:
-  pull_request:
-
-env:
-  PYTHON_VERSION: "3.8"
+  push:
+    branches:
+      - main
 
 defaults:
   run:
     shell: bash -l -eo pipefail {0}
-
+env:
+  PYTHON_VERSION: '3.8'
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: Check out repo
         uses: actions/checkout@v3
       - name: Setup python
@@ -22,32 +26,102 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Update pip
         run: python -m pip install --upgrade pip
+      - id: measurement-4
+        name: Record Measurement After Update pip
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Update pip
+          task: get-measurement
       - name: Install lint utilities
-        run: |
-          python -m pip install pre-commit
+        run: 'python -m pip install pre-commit
+
           pre-commit install-hooks
+
+          '
+      - id: measurement-6
+        name: Record Measurement After Install lint utilities
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install lint utilities
+          task: get-measurement
       - id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
-          prNumber: ${{ github.event.number }}
           output: ' '
+          prNumber: ${{ github.event.number }}
       - name: Lint modified files
         run: pre-commit run --files ${{ steps.file_changes.outputs.files }}
+      - id: measurement-9
+        name: Record Measurement After Lint modified files
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Lint modified files
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   type_checking:
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: Check out repo
         uses: actions/checkout@v3
       - name: Setup conda env
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
-          miniconda-version: "latest"
           activate-environment: lint
+          auto-update-conda: true
+          miniconda-version: latest
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: |
-          conda install pytorch torchvision torchaudio cpuonly -c pytorch-nightly
+        run: 'conda install pytorch torchvision torchaudio cpuonly -c pytorch-nightly
+
           pip install -e ".[dev]"
+
+          '
+      - id: measurement-4
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
       - name: Type check all files
         run: python -m mypy --install-types --non-interactive --config-file mypy.ini
+      - id: measurement-6
+        name: Record Measurement After Type check all files
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Type check all files
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json

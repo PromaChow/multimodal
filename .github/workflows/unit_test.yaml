@@ -1,37 +1,78 @@
 name: Unit Test
-
 on:
   push:
-    branches: [ main ]
-  pull_request:
+    branches:
+      - main
 
 defaults:
   run:
     shell: bash -l -eo pipefail {0}
-
 jobs:
   unit_tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9]
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: Check out repo
         uses: actions/checkout@v3
       - name: Setup conda env
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
-          miniconda-version: "latest"
           activate-environment: test
+          auto-update-conda: true
+          miniconda-version: latest
           python-version: ${{ matrix.python-version }}
       - name: Update pip
         run: python -m pip install --upgrade pip
+      - id: measurement-4
+        name: Record Measurement After Update pip
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Update pip
+          task: get-measurement
       - name: Install dependencies
-        run: |
-          conda install pytorch torchvision torchaudio cpuonly -c pytorch-nightly
+        run: 'conda install pytorch torchvision torchaudio cpuonly -c pytorch-nightly
+
           python -m pip install -e ".[dev]"
+
+          '
+      - id: measurement-6
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
       - name: Run unit tests with coverage
         run: pytest tests --cov=. --cov-report=xml --durations=20 -vv
+      - id: measurement-8
+        name: Record Measurement After Run unit tests with coverage
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run unit tests with coverage
+          task: get-measurement
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v3
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      matrix:
+        python-version:
+          - 3.8
+          - 3.9

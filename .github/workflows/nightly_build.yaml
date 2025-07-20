@@ -1,85 +1,174 @@
 name: Build/Push Nightly Binary
-
 on:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    # Runs at midnight every day
-    - cron:  '0 0 * * *'
-  # manual trigger
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 defaults:
   run:
     shell: bash -l -eo pipefail {0}
-
 jobs:
   build_and_upload_wheel:
     runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-         - os: ubuntu-latest
-           python-version: 3.8
-           python-tag: "py38"
-         - os: ubuntu-latest
-           python-version: 3.9
-           python-tag: "py39"
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: Check out repository
         uses: actions/checkout@v3
       - name: Set up conda
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
-          miniconda-version: "latest"
           activate-environment: build_binary
+          auto-update-conda: true
+          miniconda-version: latest
           python-version: ${{ matrix.python-version }}
       - name: Check conda info
         run: conda info
+      - id: measurement-4
+        name: Record Measurement After Check conda info
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Check conda info
+          task: get-measurement
       - name: Check python version with conda
         run: python --version
+      - id: measurement-6
+        name: Record Measurement After Check python version with conda
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Check python version with conda
+          task: get-measurement
       - name: Update pip
         run: python -m pip install --upgrade pip
+      - id: measurement-8
+        name: Record Measurement After Update pip
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Update pip
+          task: get-measurement
       - name: Update build/packaging tools
         run: python -m pip install --upgrade setuptools wheel twine
+      - id: measurement-10
+        name: Record Measurement After Update build/packaging tools
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Update build/packaging tools
+          task: get-measurement
       - name: Install dependencies
-        run: |
-          python -m pip install --pre torch torchvision torchaudio --extra-index-url \
-            https://download.pytorch.org/whl/nightly/cpu
-          python -m pip install -r requirements.txt
+        run: "python -m pip install --pre torch torchvision torchaudio --extra-index-url\
+          \ \\\n  https://download.pytorch.org/whl/nightly/cpu\npython -m pip install\
+          \ -r requirements.txt\n"
+      - id: measurement-12
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
       - name: Test installation of dependencies
-        run: |
-          python -c "import torch"
+        run: 'python -c "import torch"
+
           echo "Import torch succeeded"
+
           python -c "import torchvision"
+
           echo "Import torchvision succeeded"
+
           python -c "import torchaudio"
+
           echo "Import torchaudio succeeded"
+
+          '
+      - id: measurement-14
+        name: Record Measurement After Test installation of dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Test installation of dependencies
+          task: get-measurement
       - name: Build torchmultimodal nightly
-        run: |
-          rm -r dist || true
-          python setup.py bdist_wheel --package_name torchmultimodal-nightly \
-            --python-tag=${{ matrix.python-tag }}
+        run: "rm -r dist || true\npython setup.py bdist_wheel --package_name torchmultimodal-nightly\
+          \ \\\n  --python-tag=${{ matrix.python-tag }}\n"
+      - id: measurement-16
+        name: Record Measurement After Build torchmultimodal nightly
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Build torchmultimodal nightly
+          task: get-measurement
       - name: Install torchmultimodal nightly
         run: python -m pip install dist/torchmultimodal*.whl
+      - id: measurement-18
+        name: Record Measurement After Install torchmultimodal nightly
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install torchmultimodal nightly
+          task: get-measurement
       - name: Test torchmultimodal installation
-        # Go one-level up to avoid importing the source code
-        run: |
-          pushd ../
+        run: 'pushd ../
+
           python -c "import torchmultimodal"
+
           popd
+
+          '
+      - id: measurement-20
+        name: Record Measurement After Test torchmultimodal installation
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Test torchmultimodal installation
+          task: get-measurement
       - name: Run unit tests against the installation
-        # import-model MUST be `append` to give precedence to the installed package
-        # rather than the source code
-        run: |
-          python -m pip install pytest pytest-mock pytest-cov
-          pytest tests --import-mode=append --junitxml=junit/test-results.xml \
-            --cov-report=xml --cov-report=html --cov=. --durations=20 -vv
-      - name: Push wheel to PyPI
-        env:
+        run: "python -m pip install pytest pytest-mock pytest-cov\npytest tests --import-mode=append\
+          \ --junitxml=junit/test-results.xml \\\n  --cov-report=xml --cov-report=html\
+          \ --cov=. --durations=20 -vv\n"
+      - id: measurement-22
+        name: Record Measurement After Run unit tests against the installation
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run unit tests against the installation
+          task: get-measurement
+      - env:
           PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m twine upload dist/torchmultimodal_nightly-*.whl \
-            --username __token__ --password "$PYPI_API_TOKEN" \
-            --skip-existing \
-            --verbose
+        name: Push wheel to PyPI
+        run: "python -m twine upload dist/torchmultimodal_nightly-*.whl \\\n  --username\
+          \ __token__ --password \"$PYPI_API_TOKEN\" \\\n  --skip-existing \\\n  --verbose\n"
+      - id: measurement-24
+        name: Record Measurement After Push wheel to PyPI
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Push wheel to PyPI
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-tag: py38
+            python-version: 3.8
+          - os: ubuntu-latest
+            python-tag: py39
+            python-version: 3.9
